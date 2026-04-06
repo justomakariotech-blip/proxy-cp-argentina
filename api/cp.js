@@ -6,20 +6,22 @@ export default async function handler(req, res) {
   if (!cp) return res.status(400).json({ error: 'CP requerido' });
 
   try {
-    const url = `https://apis.datos.gob.ar/georef/api/localidades?codigo_postal=${cp}&campos=id,nombre,provincia.nombre,centroide&max=10`;
-    const r = await fetch(url);
-    const text = await r.text();
-    const data = JSON.parse(text);
+    const url = `https://nominatim.openstreetmap.org/search?postalcode=${cp}&country=Argentina&format=json&limit=5&addressdetails=1`;
+    const r = await fetch(url, {
+      headers: { 'User-Agent': 'JustoMakario-Widget/1.0' }
+    });
+    const data = await r.json();
 
-    if (!data.localidades || data.localidades.length === 0) {
+    if (!data || data.length === 0) {
       return res.status(404).json({ error: 'CP no encontrado' });
     }
 
-    const localidades = data.localidades.map(l => ({
-      nombre: l.nombre,
-      provincia: l.provincia.nombre,
-      lat: l.centroide.lat,
-      lon: l.centroide.lon
+    const localidades = data.map(l => ({
+      nombre: l.address.suburb || l.address.city_district || l.address.town || l.address.city || l.address.village || l.address.county || 'Localidad',
+      provincia: l.address.state || 'Argentina',
+      cp: l.address.postcode || cp,
+      lat: parseFloat(l.lat),
+      lon: parseFloat(l.lon)
     }));
 
     return res.status(200).json({ localidades });
